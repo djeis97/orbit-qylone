@@ -2,6 +2,9 @@
   (:require [quil.core :as q]
             [quil.middleware :as m]))
 
+(defn xf-on [collection func]
+  (into (empty collection) func collection))
+
 (def init-state {:planets []
                  :agents []
                  :millis 0
@@ -23,26 +26,29 @@
               planets))))
 
 (defn make-agent [controller]
-  {:updater
-   (fn [{dt :diff :as state} {:keys [live angle radius score] :as a-state}]
-     (if live
-       (if (agent-collided? state a-state)
-         (assoc a-state :live false)
-         (assoc a-state
-                :angle (mod (+ (/ dt 1000 radius) angle) (* 2 Math/PI))
-                :radius (if (controller state a-state)
-                          (min 0.9 (+ radius (* (/ dt 1000) 0.25)))
-                          (- radius (* (/ dt 1000) 0.25)))
-                :score (cond
-                         (<= 0.8 radius) score
-                         (<= 0.6 radius) (+ score (/ dt 1000.0))
-                         (<= 0.3 radius) (+ score (/ dt 500.0))
-                         :otherwise (+ score (/ dt 250.0)))))
-       a-state))
+  {:controller controller
    :angle 0
    :radius 0.9
    :live true
    :score 0.0})
+
+(defn update-agent
+  [{dt :diff :as state}
+   {:keys [controller live angle radius score] :as a-state}]
+  (if live
+    (if (agent-collided? state a-state)
+      (assoc a-state :live false)
+      (assoc a-state
+             :angle (mod (+ (/ dt 1000 radius) angle) (* 2 Math/PI))
+             :radius (if (controller state a-state)
+                       (min 0.9 (+ radius (* (/ dt 1000) 0.25)))
+                       (- radius (* (/ dt 1000) 0.25)))
+             :score (cond
+                      (<= 0.8 radius) score
+                      (<= 0.6 radius) (+ score (/ dt 1000.0))
+                      (<= 0.3 radius) (+ score (/ dt 500.0))
+                      :otherwise (+ score (/ dt 250.0)))))
+    a-state))
 
 (defn setup []
   init-state)
@@ -63,11 +69,9 @@
                                  :size (rand-int 4)}))
       true
       (as-> it (merge init-state it {:millis time :diff diff})
-        (update it :planets (partial into
-                                     []
-                                     (comp (map (partial update-planet it))
-                                           (filter identity))))
-        (update it :agents (partial into [] (map #((:updater %) it %))))))))
+        (update it :planets xf-on (comp (map (partial update-planet it))
+                                        (filter identity)))
+        (update it :agents xf-on (map (partial update-agent it)))))))
 
 (defn draw-fn [{:keys [spc-down planets millis diff agents]}]
   (let [width (q/width)

@@ -9,8 +9,6 @@
                  :next-planet-time 0
                  :spc-down true})
 
-(def active-state (atom nil))
-
 (defn player-controller [state a-state]
   (:spc-down state))
 
@@ -55,7 +53,6 @@
         (update :radius - (/ dt 1000)))))
 
 (defn update-fn [{:keys [planets millis next-planet-time] :as state}]
-  (reset! active-state state)
   (let [time (q/millis)
         diff (- time millis)]
     (cond-> state
@@ -120,4 +117,5 @@
   :key-pressed keypress-handler
   :key-released keyrelease-handler
   :middleware [m/fun-mode]
-  :features [:resizable])
+  :features [:resizable]
+  :renderer :java2d)
